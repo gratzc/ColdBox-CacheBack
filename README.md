@@ -18,7 +18,7 @@ Inspiration from God and from this library.
 		2) You can add a settings to your coldbox config called cacheBack.  The setting will be a structure with
 		   keys of refreshRate and timeout
 			cacheBack = {refreshRate=60,timeout=120}
-			This will set cache to refresh every 60 mins and timeout every 120 mins.
+			This will set cache to refresh every 60 secs and timeout every 120 secs.
 		3) You can use our default timeouts which are a refresh rate 18 mins and a timeout of 20 mins
 	All refresh rates and timeouts are in seconds
 
@@ -27,5 +27,5 @@ Inspiration from God and from this library.
 	Then all you need to do is add the annotation cachback to your methods
 	myFunction() cacheback refreshRate=120 timeout=240 {}
   
-Keep in mind like all things caching, testing and tuning is very important.  This can be used in very specfic scenarios
+Keep in mind like all things caching, testing and tuning is very important.  This can be used in very specific scenarios
 when you want to keep cache refreshing, but don't want users to wait for the refresh.
