@@ -10,7 +10,7 @@ Inspiration from God and from this library.
 	http://django-cacheback.readthedocs.org/en/latest/
 
 	This aspect is a self binding
-	aspect for WireBox that registers itself using the two annotations below
+	aspect for WireBox that registers itself using the annotations below
 	You can control the refresh rate for your cache and the timeout in a number of ways
 		1) You can add an annotation to your method called refreshRate and timeout
 			ie function myFunction() cacheback refreshRate=120 timeout=240 {}
@@ -24,5 +24,8 @@ Inspiration from God and from this library.
 
 	To activate this aspect you will need to map it in your WireBox binder.  This can be done like below
 	mapAspect("cacheBack").to("model.aspects.cacheBack");
+	Then all you need to do is add the annotation cachback to your methods
+	myFunction() cacheback refreshRate=120 timeout=240 {}
   
-Keep in mind like all things caching, testing and tuning is very important.
+Keep in mind like all things caching, testing and tuning is very important.  This can be used in very specfic scenarios
+when you want to keep cache refreshing, but don't want users to wait for the refresh.
