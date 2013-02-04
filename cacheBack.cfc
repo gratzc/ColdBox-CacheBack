@@ -17,7 +17,7 @@
 		2) You can add a settings to your coldbox config called cacheBack.  The setting will be a structure with
 		   keys of refreshRate and timeout
 			cacheBack = {refreshRate=60,timeout=120}
-			This will set cache to refresh every 60 secs and timeout every 120 secs.
+			This will set cache to refresh every 60 mins and timeout every 120 mins.
 		3) You can use our default timeouts which are a refresh rate 18 mins and a timeout of 20 mins
 	All refresh rates and timeouts are in seconds
 
@@ -56,16 +56,16 @@ component output="false" implements="coldbox.system.aop.MethodInterceptor" hint=
 	public any function invokeMethod(required invocation) output="false" {
 		var methodArguments = arguments.invocation.getArgs();
 		var methodName = arguments.invocation.getMethod();
+
 		//create a hash of the arguments
-		var argNames = "";
-		for (var arg in methodArguments) {
-			if (arg NEQ "fwcache") {
-				argNames &= arg;
-			}
-		}
-		hash = hash(argNames);
+		var methodArgumentsWithoutFwcache = structCopy(methodArguments);
+		structDelete(methodArgumentsWithOutFwcache, "fwcache");
+		var hash = hash(SerializeJSON(methodArgumentsWithOutFwcache));
+
+		//create unique cache and lock names based on arguments passed
 		var cacheName = methodName & hash & "_cache";
 		var lockName = methodName & hash & "_lock";
+
 		//default to whats in the settings
 		var refreshRate = settings.refreshRate;
 		var timeout = settings.timeout;
