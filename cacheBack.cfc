@@ -34,8 +34,9 @@ component output="false" implements="coldbox.system.aop.MethodInterceptor" hint=
 	/**
 	* Init
 	* @coldboxConfig.inject coldbox:configBean
+	* @coldboxUtil.inject id:coldbox.system.core.util.Util
 	*/
-	public any function init(settings={refreshRate = 1080,timeout = 1200}, coldboxConfig) {
+	public any function init(settings={refreshRate = 1080,timeout = 1200}, coldboxConfig, coldboxUtil) {
 		variables.settings = arguments.settings;
 
 		//if we have coldbox settings, use those for our default
@@ -46,6 +47,8 @@ component output="false" implements="coldbox.system.aop.MethodInterceptor" hint=
 		if(structKeyExists(coldBoxSetting, "timeout")) {
 			variables.settings.timeout = coldBoxSetting.timeout;
 		}
+
+		variables.coldboxUtil = arguments.coldboxUtil;
 
 		return this;
 	}
@@ -85,6 +88,9 @@ component output="false" implements="coldbox.system.aop.MethodInterceptor" hint=
 		//check to see if we are forcing a cache refresh
 		var forceRefresh = (structKeyExists(url,'fwcache') && url.fwcache == 1) || methodArguments.fwcache;
 
+		//check if we manually reset the lock
+		if(structKeyExists(url,'resetLock') && url.resetLock == 1) {application[lockName] = false;}
+
 		//get the item from cache
 		var cacheResult = cacheGet(cacheName);
 
@@ -101,27 +107,69 @@ component output="false" implements="coldbox.system.aop.MethodInterceptor" hint=
 		//if we are in the refresh timeframe, launch a thread and refresh
 		} else if (cacheResult.softTimeout < now()) {
 			//prevent more then one thread from firing
-			if(!structKeyExists(application, lockName) || !application[lockName]) {
-				thread action="run" name="#cacheName#" cacheName=cacheName lockName=lockName methodName=methodName invocation=arguments.invocation methodArguments=methodArguments softTimeout=CacheResult.softTimeout {
+			var spawnAThread = false;
+
+			lock name="#lockName#" timeout="1" throwOnTimeout="no" {
+				if(!structKeyExists(application, lockName) || !application[lockName]) {
+
 					//lock so we don't dogpile the refresh.
-					lock name="#lockName#" timeout="1" throwOnTimeout="no" {
-						//let the application know we are running
-						application[lockName] = true;
-						var newCache = cacheGet(cacheName);
-						//double check that the cache hasn't changed, if it has, no need to do anything because it already updated.
-						if(newCache.softTimeout == softTimeout) {
+					spawnAThread = true;
+					application[lockName] = true;
+				}
+			}
+			if (spawnAThread) {
+				try{
+					//if we aren't already in a thread, then launch one, otherwise update with no thread
+					if(!coldboxUtil.inThread()) {
+						thread action="run" name="#cacheName#" cacheName=cacheName lockName=lockName methodName=methodName invocation=arguments.invocation methodArguments=methodArguments softTimeout=CacheResult.softTimeout {
+
+							var newCache = cacheGet(cacheName);
+
+							//double check that the cache hasn't changed, if it has, no need to do anything because it already updated.
+							if(newCache.softTimeout == softTimeout) {
+								//the cache hasn't changed so update in with the thread
+								var args = methodArguments;
+								args.fwcache = true;
+								invocation.setArgs(args);
+								invokeMethod(invocation);
+							}
+
+							//let the application know we are done
+							application[lockName] = false;
+
+						}
+					} else {
+						//lock so we don't dogpile the refresh.
+						lock name="#lockName#" timeout="1" throwOnTimeout="no" {
+							//let the application know we are running
+							application[lockName] = true;
 							//the cache hasn't changed so update in with the thread
 							var args = methodArguments;
 							args.fwcache = true;
 							invocation.setArgs(args);
 							invokeMethod(invocation);
+							//let the application know we are done
+							application[lockName] = false;
 						}
+					}
+				} catch (any e) {
+					//the thread failed, so this person has to pay to refresh the cache
+					//lock so we don't dogpile the refresh.
+					lock name="#lockName#" timeout="1" throwOnTimeout="no" {
+						//let the application know we are running
+						application[lockName] = true;
+						//the cache hasn't changed so update in with the thread
+						var args = methodArguments;
+						args.fwcache = true;
+						invocation.setArgs(args);
+						invokeMethod(invocation);
 						//let the application know we are done
 						application[lockName] = false;
 					}
 				}
 			}
 		}
+
 		//return the results
 		return cacheResult.results;
 	}
